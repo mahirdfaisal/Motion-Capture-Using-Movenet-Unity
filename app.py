@@ -3,8 +3,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 import cv2
 
-interpreter = tf.lite.Interpreter(model_path='lite-model_movenet_singlepose_lightning_3.tflite')
-interpreter.allocate_tensors()
+interpreter = [tf.lite.Interpreter(model_path='lite-model_movenet_singlepose_lightning_3.tflite'),tf.lite.Interpreter(model_path='lite-model_movenet_singlepose_thunder_3.tflite')]
+interpreter_selector = 0
+interpreter[interpreter_selector].allocate_tensors()
 
 
 EDGES = {
@@ -27,7 +28,6 @@ EDGES = {
     (12, 14): 'c',
     (14, 16): 'c'
 }
-a
 
 def draw_keypoints(frame, keypoints, confidence_threshold):
     y, x, c = frame.shape
@@ -53,23 +53,31 @@ def draw_connections(frame, keypoints, edges, confidence_threshold):
             cv2.line(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0,0,255), 2)
 
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture("1.mp4")
 while cap.isOpened():
     ret, frame = cap.read()
     
-    # Reshape image
+    # Resize image
     img = frame.copy()
-    img = tf.image.resize_with_pad(np.expand_dims(img, axis=0), 192,192)
+    
+    if(interpreter_selector==0):
+        img = tf.image.resize_with_pad(np.expand_dims(img, axis=0), 192,192)
+    elif(interpreter_selector == 1):
+        img = tf.image.resize_with_pad(np.expand_dims(img, axis=0), 256,256)
+    else:
+        print("Select An Appropriate Interpreter")
+        
+        
     input_image = tf.cast(img, dtype=tf.float32)
     
     # Setup input and output 
-    input_details = interpreter.get_input_details()
-    output_details = interpreter.get_output_details()
+    input_details = interpreter[interpreter_selector].get_input_details()
+    output_details = interpreter[interpreter_selector].get_output_details()
     
     # Make predictions 
-    interpreter.set_tensor(input_details[0]['index'], np.array(input_image))
-    interpreter.invoke()
-    keypoints_with_scores = interpreter.get_tensor(output_details[0]['index'])
+    interpreter[interpreter_selector].set_tensor(input_details[0]['index'], np.array(input_image))
+    interpreter[interpreter_selector].invoke()
+    keypoints_with_scores = interpreter[interpreter_selector].get_tensor(output_details[0]['index'])
     
     # Rendering 
     draw_connections(frame, keypoints_with_scores, EDGES, 0.4)
