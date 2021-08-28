@@ -2,6 +2,13 @@ import tensorflow as tf
 import numpy as np
 from matplotlib import pyplot as plt
 import cv2
+import json
+import time
+import zmq
+
+context = zmq.Context()
+socket = context.socket(zmq.REP)
+socket.bind("tcp://*:5555")
 
 interpreter = [tf.lite.Interpreter(model_path='lite-model_movenet_singlepose_lightning_3.tflite'),tf.lite.Interpreter(model_path='lite-model_movenet_singlepose_thunder_3.tflite')]
 interpreter_selector = 0
@@ -55,6 +62,8 @@ def draw_connections(frame, keypoints, edges, confidence_threshold):
 
 cap = cv2.VideoCapture("1.mp4")
 while cap.isOpened():
+    message = socket.recv()
+    print("Received request: %s" % message)
     ret, frame = cap.read()
     
     # Resize image
@@ -78,6 +87,22 @@ while cap.isOpened():
     interpreter[interpreter_selector].set_tensor(input_details[0]['index'], np.array(input_image))
     interpreter[interpreter_selector].invoke()
     keypoints_with_scores = interpreter[interpreter_selector].get_tensor(output_details[0]['index'])
+    
+    print(type(keypoints_with_scores)) 
+    
+    lists = keypoints_with_scores.tolist()
+    list_1 = lists[0][0]
+    jsonStrin = '['
+    for item in list_1:
+        jsonStrin  = jsonStrin + '{"x" :' +  str(item[0]) + ',' + '"y" :' +  str(item[1]) + ',' + '"c" :' +  str(item[2])  + '},'
+    jsonStrin = jsonStrin[:-1]
+    jsonStrin += ']'
+    print(jsonStrin)
+    
+    socket.send_string(jsonStrin)
+    
+    # with open('C:/Users/mahir/Pose Estimation/Assets/data.json', 'w') as outfile:
+    #     json.dump(jsonStrin, outfile)
     
     # Rendering 
     draw_connections(frame, keypoints_with_scores, EDGES, 0.4)
