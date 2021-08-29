@@ -6,10 +6,11 @@
 
 import time
 import zmq
-
+import cv2
 context = zmq.Context()
 socket = context.socket(zmq.REP)
 socket.bind("tcp://*:5555")
+
 
 while True:
     #  Wait for next request from client
@@ -20,8 +21,10 @@ while True:
     #  Try reducing sleep time to 0.01 to see how blazingly fast it communicates
     #  In the real world usage, you just need to replace time.sleep() with
     #  whatever work you want python to do, maybe a machine learning task?
-    time.sleep(1)
+    # time.sleep(1)
 
+    if cv2.waitKey(10) & 0xFF==ord('q'):
+        break
     #  Send reply back to client
     #  In the real world usage, after you finish your work, send your output here
     socket.send(b"World")

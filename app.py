@@ -3,12 +3,14 @@ import numpy as np
 from matplotlib import pyplot as plt
 import cv2
 import json
+import socket
 import time
-import zmq
 
-context = zmq.Context()
-socket = context.socket(zmq.REP)
-socket.bind("tcp://*:5555")
+host, port = "127.0.0.1", 25001
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.connect((host, port))
+startPos = [0, 0, 0]
+
 
 interpreter = [tf.lite.Interpreter(model_path='lite-model_movenet_singlepose_lightning_3.tflite'),tf.lite.Interpreter(model_path='lite-model_movenet_singlepose_thunder_3.tflite')]
 interpreter_selector = 0
@@ -60,10 +62,10 @@ def draw_connections(frame, keypoints, edges, confidence_threshold):
             cv2.line(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0,0,255), 2)
 
 
-cap = cv2.VideoCapture("1.mp4")
+cap = cv2.VideoCapture(0)
 while cap.isOpened():
-    message = socket.recv()
-    print("Received request: %s" % message)
+    # message = socket.recv()
+    # print("Received request: %s" % message)
     ret, frame = cap.read()
     
     # Resize image
@@ -87,23 +89,19 @@ while cap.isOpened():
     interpreter[interpreter_selector].set_tensor(input_details[0]['index'], np.array(input_image))
     interpreter[interpreter_selector].invoke()
     keypoints_with_scores = interpreter[interpreter_selector].get_tensor(output_details[0]['index'])
+    # print(keypoints_with_scores)
     
-    print(type(keypoints_with_scores)) 
     
     lists = keypoints_with_scores.tolist()
     list_1 = lists[0][0]
-    jsonStrin = '['
-    for item in list_1:
-        jsonStrin  = jsonStrin + '{"x" :' +  str(item[0]) + ',' + '"y" :' +  str(item[1]) + ',' + '"c" :' +  str(item[2])  + '},'
-    jsonStrin = jsonStrin[:-1]
-    jsonStrin += ']'
-    print(jsonStrin)
     
-    socket.send_string(jsonStrin)
+    s = ''.join(str(e) for e in list_1)
+    print(s)
     
-    # with open('C:/Users/mahir/Pose Estimation/Assets/data.json', 'w') as outfile:
-    #     json.dump(jsonStrin, outfile)
+    sock.sendall(s.encode("UTF-8"))
+    receivedData = sock.recv(1024).decode("UTF-8")
     
+
     # Rendering 
     draw_connections(frame, keypoints_with_scores, EDGES, 0.4)
     draw_keypoints(frame, keypoints_with_scores, 0.4)
